@@ -11,6 +11,7 @@ from decimal import Decimal
 
 import httpx
 
+from app.config import settings
 from app.core.pricing import compute_cost
 
 logger = logging.getLogger("gpt_image2.usage")
@@ -63,7 +64,9 @@ async def fetch_image_usage(start_unix: int, end_unix: int, admin_key: str) -> l
                     in_tokens += int(r.get("input_tokens", 0))
                     out_tokens += int(r.get("output_tokens", 0))
                     num_req += int(r.get("num_model_requests", 0))
-                cost: Decimal = compute_cost(in_tokens, out_tokens)
+                cost: Decimal = compute_cost(
+                    in_tokens, out_tokens, model=settings.openai_image_model,
+                )
                 out.append({
                     "date": bucket_date,
                     "input_tokens": in_tokens,

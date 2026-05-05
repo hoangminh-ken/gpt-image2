@@ -114,7 +114,10 @@ async def run_item(item_id: int) -> None:
         out_file = job_dir / _output_filename(item)
         await asyncio.to_thread(out_file.write_bytes, result.image_bytes)
 
-        cost = compute_cost(result.input_tokens, result.output_tokens)
+        cost = compute_cost(
+            result.input_tokens, result.output_tokens,
+            model=settings.openai_image_model,
+        )
         item.input_tokens = result.input_tokens
         item.output_tokens = result.output_tokens
         item.cost_usd = cost
