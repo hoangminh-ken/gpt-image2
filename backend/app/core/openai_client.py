@@ -1,5 +1,10 @@
 """Thin wrapper around openai SDK for gpt-image-2 edit calls.
 
+Reference: https://developers.openai.com/api/docs/models/gpt-image-2
+- Endpoint: client.images.edit (POST /v1/images/edits)
+- Response default: b64_json (returned in resp.data[0].b64_json)
+- Usage: resp.usage.{input_tokens, output_tokens, total_tokens}
+
 Provides both sync (`edit_image`) and async (`edit_image_async`) variants.
 """
 from __future__ import annotations
@@ -14,9 +19,9 @@ from PIL import Image
 
 from app.config import settings
 
-MODEL = "gpt-image-2"
-DEFAULT_SIZE = "1024x1024"
-DEFAULT_QUALITY = "medium"
+DEFAULT_SIZE = "1024x1024"   # also valid: 1024x1536, 1536x1024, auto
+DEFAULT_QUALITY = "medium"   # low | medium | high | auto
+DEFAULT_OUTPUT_FORMAT = "png"
 
 
 @dataclass
@@ -89,11 +94,12 @@ def edit_image(
     """
     image_arg = _prepare_image_arg(ref_paths)
     resp = _client().images.edit(
-        model=MODEL,
+        model=settings.openai_image_model,
         image=image_arg,
         prompt=prompt,
         size=size,
         quality=quality,
+        output_format=DEFAULT_OUTPUT_FORMAT,
     )
     return _parse_response(resp)
 
@@ -108,10 +114,11 @@ async def edit_image_async(
     image_arg = _prepare_image_arg(ref_paths)
     client = _async_client()
     resp = await client.images.edit(
-        model=MODEL,
+        model=settings.openai_image_model,
         image=image_arg,
         prompt=prompt,
         size=size,
         quality=quality,
+        output_format=DEFAULT_OUTPUT_FORMAT,
     )
     return _parse_response(resp)

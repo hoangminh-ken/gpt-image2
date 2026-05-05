@@ -16,6 +16,8 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     openai_admin_key: str = ""
+    # Model — keep as alias 'gpt-image-2'; can pin to a snapshot like 'gpt-image-2-2026-04-21'
+    openai_image_model: str = "gpt-image-2"
 
     database_url: str = "sqlite:///data/app.db"
     output_dir: str = "outputs"
