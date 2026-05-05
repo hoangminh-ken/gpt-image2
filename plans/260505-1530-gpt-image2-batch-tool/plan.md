@@ -21,7 +21,7 @@ Local web app that batches image generation via OpenAI `gpt-image-2`, with retry
 | # | Phase | Status | Priority | Effort | Depends On |
 |---|-------|--------|----------|--------|-----------|
 | 1 | [Backend Skeleton + Mode A](./phase-01-backend-skeleton.md) | ✅ completed | P1 | 1d | — |
-| 2 | [Async Worker + Retry/Pause/Resume](./phase-02-async-worker.md) | pending | P1 | 1.5d | 1 |
+| 2 | [Async Worker + Retry/Pause/Resume](./phase-02-async-worker.md) | ✅ completed | P1 | 1.5d | 1 |
 | 3 | [Frontend Dashboard + NewJob + JobDetail](./phase-03-frontend-dashboard.md) | pending | P1 | 2d | 2 |
 | 4 | [Mode B Excel Parser](./phase-04-excel-mode.md) | pending | P2 | 0.5d | 3 |
 | 5 | [Cost Reconcile + OpenAI Usage API](./phase-05-cost-reconcile.md) | pending | P2 | 0.5d | 3 |

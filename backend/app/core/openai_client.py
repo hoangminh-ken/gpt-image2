@@ -1,6 +1,6 @@
 """Thin wrapper around openai SDK for gpt-image-2 edit calls.
 
-Phase 1: synchronous. Phase 2 will introduce AsyncOpenAI variant.
+Provides both sync (`edit_image`) and async (`edit_image_async`) variants.
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import io
 from dataclasses import dataclass
 from pathlib import Path
 
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 from PIL import Image
 
 from app.config import settings
@@ -45,6 +45,38 @@ def _client() -> OpenAI:
     return OpenAI(api_key=settings.openai_api_key)
 
 
+def _async_client() -> AsyncOpenAI:
+    if not settings.openai_api_key:
+        raise RuntimeError("OPENAI_API_KEY not configured in .env")
+    return AsyncOpenAI(api_key=settings.openai_api_key)
+
+
+def _prepare_image_arg(ref_paths: list[str]):
+    if not ref_paths:
+        raise ValueError("At least one reference image path is required")
+    files = []
+    for p in ref_paths:
+        path = Path(p)
+        if not path.is_file():
+            raise FileNotFoundError(f"Reference image not found: {p}")
+        png_bytes = _resize_if_needed(path, settings.max_ref_dimension)
+        files.append((path.name, png_bytes, "image/png"))
+    return files[0] if len(files) == 1 else files
+
+
+def _parse_response(resp) -> EditResult:
+    if not resp.data:
+        raise RuntimeError("OpenAI returned no image data")
+    b64 = resp.data[0].b64_json
+    if not b64:
+        raise RuntimeError("OpenAI response missing b64_json")
+    image_bytes = base64.b64decode(b64)
+    usage = getattr(resp, "usage", None)
+    in_tokens = getattr(usage, "input_tokens", 0) if usage else 0
+    out_tokens = getattr(usage, "output_tokens", 0) if usage else 0
+    return EditResult(image_bytes=image_bytes, input_tokens=in_tokens, output_tokens=out_tokens)
+
+
 def edit_image(
     prompt: str,
     ref_paths: list[str],
@@ -55,43 +87,31 @@ def edit_image(
 
     Returns generated PNG bytes plus token usage from response.usage.
     """
-    if not ref_paths:
-        raise ValueError("At least one reference image path is required")
+    image_arg = _prepare_image_arg(ref_paths)
+    resp = _client().images.edit(
+        model=MODEL,
+        image=image_arg,
+        prompt=prompt,
+        size=size,
+        quality=quality,
+    )
+    return _parse_response(resp)
 
-    files = []
-    try:
-        for p in ref_paths:
-            path = Path(p)
-            if not path.is_file():
-                raise FileNotFoundError(f"Reference image not found: {p}")
-            png_bytes = _resize_if_needed(path, settings.max_ref_dimension)
-            files.append((path.name, png_bytes, "image/png"))
 
-        # openai SDK accepts a list of file tuples for multiple references
-        image_arg = [(name, buf, mime) for name, buf, mime in files]
-        if len(image_arg) == 1:
-            image_arg = image_arg[0]
-
-        resp = _client().images.edit(
-            model=MODEL,
-            image=image_arg,
-            prompt=prompt,
-            size=size,
-            quality=quality,
-        )
-    finally:
-        files.clear()
-
-    if not resp.data:
-        raise RuntimeError("OpenAI returned no image data")
-
-    b64 = resp.data[0].b64_json
-    if not b64:
-        raise RuntimeError("OpenAI response missing b64_json")
-    image_bytes = base64.b64decode(b64)
-
-    usage = getattr(resp, "usage", None)
-    in_tokens = getattr(usage, "input_tokens", 0) if usage else 0
-    out_tokens = getattr(usage, "output_tokens", 0) if usage else 0
-
-    return EditResult(image_bytes=image_bytes, input_tokens=in_tokens, output_tokens=out_tokens)
+async def edit_image_async(
+    prompt: str,
+    ref_paths: list[str],
+    size: str = DEFAULT_SIZE,
+    quality: str = DEFAULT_QUALITY,
+) -> EditResult:
+    """Async variant. Image prep is sync (CPU/IO short), API call is awaited."""
+    image_arg = _prepare_image_arg(ref_paths)
+    client = _async_client()
+    resp = await client.images.edit(
+        model=MODEL,
+        image=image_arg,
+        prompt=prompt,
+        size=size,
+        quality=quality,
+    )
+    return _parse_response(resp)

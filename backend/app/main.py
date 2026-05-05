@@ -7,8 +7,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import jobs, preview, uploads
+from app.api import jobs, preview, uploads, ws
 from app.config import settings
+from app.core.worker_pool import WorkerPool, resume_scan
 from app.db.session import init_db
 
 logger = logging.getLogger("gpt_image2")
@@ -21,12 +22,22 @@ async def lifespan(app: FastAPI):
     removed = uploads.cleanup_old_uploads()
     if removed:
         logger.info("Cleaned %d expired upload files", removed)
+
+    pool = WorkerPool(concurrency=settings.default_concurrency)
+    enqueued = resume_scan(pool)
+    if enqueued:
+        logger.info("Resume scan enqueued %d items from previous run", enqueued)
+    await pool.start()
+    app.state.pool = pool
     logger.info("Server ready on %s:%d", settings.host, settings.port)
-    yield
+    try:
+        yield
+    finally:
+        await pool.shutdown(timeout=60.0)
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="gpt-image2 batch generator", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="gpt-image2 batch generator", version="0.2.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -37,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(jobs.router)
     app.include_router(preview.router)
     app.include_router(uploads.router)
+    app.include_router(ws.router)
 
     @app.get("/api/health")
     def health() -> dict:

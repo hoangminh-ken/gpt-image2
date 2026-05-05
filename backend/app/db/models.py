@@ -56,6 +56,7 @@ class JobItem(Base):
     cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal("0"))
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    next_retry_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
 
     job: Mapped[Job] = relationship(back_populates="items")
 

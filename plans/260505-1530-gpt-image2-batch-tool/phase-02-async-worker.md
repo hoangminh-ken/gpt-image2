@@ -1,10 +1,12 @@
 ---
 phase: 2
 title: "Async Worker + Retry/Pause/Resume + WebSocket"
-status: pending
+status: completed
 priority: P1
 effort: "1.5d"
 dependencies: [1]
+completed: 2026-05-05
+smoke_test: "PASS — 2 concurrent items (~73s vs 140s sequential), total $0.1447, retry/pause/cancel endpoints verified via 31 unit tests"
 ---
 
 # Phase 2: Async Worker + Retry/Pause/Resume + WebSocket
