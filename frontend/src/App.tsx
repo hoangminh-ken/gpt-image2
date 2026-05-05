@@ -20,7 +20,10 @@ export function App() {
         <NavLink to="/cost" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
           Cost
         </NavLink>
-        <div className="mt-auto text-xs text-slate-400 px-3">v0.5.0 · Phase 5</div>
+        <NavLink to="/settings" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
+          Settings
+        </NavLink>
+        <div className="mt-auto text-xs text-slate-400 px-3">v0.6.0</div>
       </aside>
       <main className="flex-1 p-6 overflow-auto">
         <Outlet />

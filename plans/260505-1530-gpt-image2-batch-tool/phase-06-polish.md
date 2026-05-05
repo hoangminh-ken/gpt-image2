@@ -1,10 +1,12 @@
 ---
 phase: 6
-title: "Polish + Settings + README"
-status: pending
+title: "Polish + Settings + ZIP + Dev script + README"
+status: completed
 priority: P3
 effort: "0.5d"
 dependencies: [4, 5]
+completed: 2026-05-05
+smoke_test: "PASS — Settings API + read-only UI + test-key endpoint, ZIP export streamed (manifest.json + PNGs), root npm run dev with concurrently, README full quick-start. Backend 44 tests."
 ---
 
 # Phase 6: Polish + Settings + README

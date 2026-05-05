@@ -1,8 +1,9 @@
 ---
 title: GPT-Image-2 Batch Generator
-status: pending
+status: completed
 priority: P1
 created: 2026-05-05
+completed: 2026-05-05
 type: implementation
 source: brainstorm-summary.md
 ---
@@ -25,7 +26,7 @@ Local web app that batches image generation via OpenAI `gpt-image-2`, with retry
 | 3 | [Frontend Dashboard + NewJob + JobDetail](./phase-03-frontend-dashboard.md) | ✅ completed | P1 | 2d | 2 |
 | 4 | [Mode B Excel Parser](./phase-04-excel-mode.md) | ✅ completed | P2 | 0.5d | 3 |
 | 5 | [Cost Reconcile + OpenAI Usage API](./phase-05-cost-reconcile.md) | ✅ completed | P2 | 0.5d | 3 |
-| 6 | [Polish + Settings + README](./phase-06-polish.md) | pending | P3 | 0.5d | 4, 5 |
+| 6 | [Polish + Settings + README](./phase-06-polish.md) | ✅ completed | P3 | 0.5d | 4, 5 |
 
 **Total estimate**: ~6 days solo dev
 

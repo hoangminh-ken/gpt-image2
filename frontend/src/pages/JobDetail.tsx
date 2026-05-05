@@ -57,7 +57,17 @@ export function JobDetail() {
             <span className="text-slate-500">Total cost: </span>
             <span className="font-medium tabular-nums">{formatUSD(totalCost)}</span>
           </div>
-          <JobControls job={job} />
+          <div className="flex items-center gap-2">
+            {job.done > 0 && (
+              <a
+                href={`/api/jobs/${job.id}/export.zip`}
+                className="px-3 py-1.5 rounded text-sm font-medium border bg-slate-50 border-slate-300 text-slate-700 hover:bg-slate-100"
+              >
+                ⬇ Download ZIP ({job.done})
+              </a>
+            )}
+            <JobControls job={job} />
+          </div>
         </div>
       </div>
 
