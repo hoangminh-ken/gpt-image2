@@ -4,14 +4,17 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.executor import update_job_terminal_status
 from app.db.models import Job, JobItem
 from app.db.session import get_db
+from app.parsers.excel import parse_excel
 from app.parsers.template import build_items
+
+EXCEL_MAX_BYTES = 10 * 1024 * 1024
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 
@@ -21,6 +24,19 @@ class CreateTemplateJob(BaseModel):
     mode: Literal["template"]
     template_prompt: str = Field(min_length=1)
     ref_paths: list[str] = Field(min_length=1)
+
+
+class ExcelRowIn(BaseModel):
+    prompt: str
+    refs: list[str]
+    output_name: str | None = None
+
+
+class CreateExcelJob(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    mode: Literal["excel"]
+    rows: list[ExcelRowIn] = Field(min_length=1)
+    skip_invalid: bool = False
 
 
 class ItemOut(BaseModel):
@@ -82,30 +98,65 @@ def _item_to_out(item: JobItem) -> ItemOut:
     )
 
 
-@router.post("", response_model=JobOut, status_code=201)
-def create_job(payload: CreateTemplateJob, request: Request, db: Session = Depends(get_db)):
-    specs = build_items(payload.template_prompt, payload.ref_paths)
-    job = Job(name=payload.name, mode=payload.mode, status="running", config_json={})
+def _create_job_with_items(
+    db: Session, request: Request, name: str, mode: str,
+    items_data: list[tuple[int, str, list[str], str | None]],
+) -> Job:
+    job = Job(name=name, mode=mode, status="running", config_json={})
     job.started_at = datetime.utcnow()
     db.add(job)
     db.flush()
-
     item_ids = []
-    for s in specs:
+    for row_idx, prompt, refs, output_name in items_data:
         item = JobItem(
-            job_id=job.id, row_idx=s.row_idx, prompt=s.prompt,
-            refs_json=s.refs, output_name=s.output_name, status="pending",
+            job_id=job.id, row_idx=row_idx, prompt=prompt,
+            refs_json=refs, output_name=output_name, status="pending",
         )
         db.add(item)
         db.flush()
         item_ids.append(item.id)
     db.commit()
     db.refresh(job)
-
     pool = getattr(request.app.state, "pool", None)
     if pool is not None:
         pool.enqueue_many(item_ids)
+    return job
+
+
+@router.post("", response_model=JobOut, status_code=201)
+def create_job(payload: CreateTemplateJob, request: Request, db: Session = Depends(get_db)):
+    specs = build_items(payload.template_prompt, payload.ref_paths)
+    items_data = [(s.row_idx, s.prompt, s.refs, s.output_name) for s in specs]
+    job = _create_job_with_items(db, request, payload.name, payload.mode, items_data)
     return _job_to_out(job, list(job.items))
+
+
+@router.post("/excel", response_model=JobOut, status_code=201)
+def create_excel_job(payload: CreateExcelJob, request: Request, db: Session = Depends(get_db)):
+    valid_rows = [r for r in payload.rows if r.prompt.strip() and r.refs]
+    if len(valid_rows) != len(payload.rows) and not payload.skip_invalid:
+        raise HTTPException(
+            400,
+            f"{len(payload.rows) - len(valid_rows)} invalid rows; pass skip_invalid=true to proceed",
+        )
+    if not valid_rows:
+        raise HTTPException(400, "No valid rows to create job from")
+    items_data = [
+        (i, r.prompt.strip(), [p.strip() for p in r.refs if p.strip()], r.output_name or None)
+        for i, r in enumerate(valid_rows)
+    ]
+    job = _create_job_with_items(db, request, payload.name, payload.mode, items_data)
+    return _job_to_out(job, list(job.items))
+
+
+@router.post("/parse-excel")
+async def parse_excel_endpoint(file: UploadFile):
+    data = await file.read(EXCEL_MAX_BYTES + 1)
+    if len(data) > EXCEL_MAX_BYTES:
+        raise HTTPException(413, "File exceeds 10MB")
+    if not (file.filename or "").lower().endswith((".xlsx", ".xlsm")):
+        raise HTTPException(415, "Only .xlsx/.xlsm supported")
+    return parse_excel(data).to_dict()
 
 
 @router.get("", response_model=list[JobOut])

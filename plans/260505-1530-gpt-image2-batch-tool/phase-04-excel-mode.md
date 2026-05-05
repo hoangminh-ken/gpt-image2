@@ -1,10 +1,12 @@
 ---
 phase: 4
 title: "Mode B Excel Parser"
-status: pending
+status: completed
 priority: P2
 effort: "0.5d"
 dependencies: [3]
+completed: 2026-05-05
+smoke_test: "PASS — 6 parser tests, valid/invalid/multi-ref/blank/output_name/too-many-refs scenarios. Backend 37/37 tests, frontend build 342KB."
 ---
 
 # Phase 4: Mode B Excel Parser

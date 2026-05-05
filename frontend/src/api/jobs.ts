@@ -45,6 +45,31 @@ export interface CreateTemplateJob {
   ref_paths: string[]
 }
 
+export interface ExcelRow {
+  prompt: string
+  refs: string[]
+  output_name: string | null
+}
+
+export interface ExcelRowDiagnostic extends ExcelRow {
+  row_idx: number
+  valid: boolean
+  errors: string[]
+}
+
+export interface ExcelParseResult {
+  headers: string[]
+  rows: ExcelRowDiagnostic[]
+  summary: { total: number; valid: number; invalid: number; error?: string }
+}
+
+export interface CreateExcelJob {
+  name: string
+  mode: 'excel'
+  rows: ExcelRow[]
+  skip_invalid: boolean
+}
+
 export const jobsApi = {
   list: () => api.get<Job[]>('/api/jobs'),
   detail: (id: number) => api.get<JobDetail>(`/api/jobs/${id}`),
@@ -58,4 +83,16 @@ export const jobsApi = {
     api.upload<{ files: { name: string; path: string; abs_path: string; size: number }[] }>(
       '/api/uploads/refs', files,
     ),
+  parseExcel: async (file: File): Promise<ExcelParseResult> => {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch('/api/jobs/parse-excel', { method: 'POST', body: fd })
+    if (!res.ok) {
+      let detail = res.statusText
+      try { const d = await res.json(); detail = d.detail || JSON.stringify(d) } catch { /* */ }
+      throw new Error(detail)
+    }
+    return res.json() as Promise<ExcelParseResult>
+  },
+  createExcelJob: (body: CreateExcelJob) => api.post<Job>('/api/jobs/excel', body),
 }
