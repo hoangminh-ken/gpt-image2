@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Tabular numerals for cost displays */
+.tabular-nums { font-variant-numeric: tabular-nums; }

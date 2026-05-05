@@ -1,10 +1,12 @@
 ---
 phase: 3
 title: "Frontend Dashboard + NewJob + JobDetail"
-status: pending
+status: completed
 priority: P1
 effort: "2d"
 dependencies: [2]
+completed: 2026-05-05
+smoke_test: "PASS — TS clean, vite build 337KB JS / 18KB CSS, dev proxy /api+/ws verified end-to-end. UI manual click-through deferred to user."
 ---
 
 # Phase 3: Frontend Dashboard + NewJob + JobDetail
