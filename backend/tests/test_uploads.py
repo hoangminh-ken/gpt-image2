@@ -54,9 +54,20 @@ def test_upload_too_many(tmp_workspace: Path):
     assert resp.status_code == 400
 
 
-def test_preview_traversal_blocked(tmp_workspace: Path):
+def test_preview_nonexistent_returns_404(tmp_workspace: Path):
     from app.main import create_app
 
     app = create_app()
     client = TestClient(app)
-    assert client.get("/api/preview/../etc/passwd").status_code in (400, 403, 404)
+    # Image extension under tracked roots but file doesn't exist
+    assert client.get("/api/preview/outputs/none/missing.png").status_code == 404
+
+
+def test_preview_rejects_non_image_outside(tmp_workspace: Path):
+    from app.main import create_app
+
+    app = create_app()
+    client = TestClient(app)
+    # Absolute path outside allowed roots, no image extension
+    resp = client.get("/api/preview/C:/Windows/System32/notepad.exe")
+    assert resp.status_code in (403, 404)

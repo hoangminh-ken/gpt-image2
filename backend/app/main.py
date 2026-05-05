@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api import cost, exports, jobs, preview, system, uploads, ws
 from app.api import settings as settings_api
@@ -58,6 +60,24 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health() -> dict:
         return {"status": "ok", "openai_configured": bool(settings.openai_api_key)}
+
+    # Mount built frontend if present (production / packaged mode).
+    # In dev, Vite serves the SPA on :5173 with proxy to /api here.
+    dist = settings.project_root / "frontend" / "dist"
+    if dist.is_dir():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=dist / "assets"),
+            name="assets",
+        )
+
+        @app.get("/")
+        @app.get("/{full_path:path}", include_in_schema=False)
+        def spa_fallback(full_path: str = ""):
+            # API/WS routes already matched. Fallback returns index.html for SPA routing.
+            if full_path.startswith(("api/", "ws/")):
+                return {"detail": "Not Found"}, 404
+            return FileResponse(dist / "index.html")
 
     return app
 

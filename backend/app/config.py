@@ -5,10 +5,12 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(str(_BACKEND_DIR / ".env"), ".env"),  # backend/.env primary, CWD fallback
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
