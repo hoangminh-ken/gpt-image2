@@ -15,8 +15,8 @@ from app.utils.slug import store_path
 router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
 ALLOWED_EXT = {".png", ".jpg", ".jpeg", ".webp"}
-MAX_BYTES = 10 * 1024 * 1024  # 10MB
-MAX_FILES = 8
+MAX_BYTES = 100 * 1024 * 1024  # 100MB — Pillow auto-resizes to MAX_REF_DIMENSION before API call
+MAX_FILES = 16
 RETENTION_DAYS = 7
 
 

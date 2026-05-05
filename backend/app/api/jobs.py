@@ -14,7 +14,7 @@ from app.db.session import get_db
 from app.parsers.excel import parse_excel
 from app.parsers.template import build_items
 
-EXCEL_MAX_BYTES = 10 * 1024 * 1024
+EXCEL_MAX_BYTES = 50 * 1024 * 1024
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 

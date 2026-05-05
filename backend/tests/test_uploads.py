@@ -48,7 +48,8 @@ def test_upload_too_many(tmp_workspace: Path):
 
     app = create_app()
     client = TestClient(app)
-    files = [("files", (f"a{i}.png", _png_buf(), "image/png")) for i in range(9)]
+    # MAX_FILES = 16 → 17 files should fail
+    files = [("files", (f"a{i}.png", _png_buf(), "image/png")) for i in range(17)]
     resp = client.post("/api/uploads/refs", files=files)
     assert resp.status_code == 400
 

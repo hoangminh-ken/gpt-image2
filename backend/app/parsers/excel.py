@@ -10,7 +10,7 @@ import openpyxl
 
 MAX_ROWS = 1000
 MAX_REFS_PER_ROW = 8
-MAX_PROMPT_LEN = 4000
+MAX_PROMPT_LEN = 32000  # gpt-image-2 input is token-bound, not char-bound; this is a sanity cap
 ALLOWED_REF_EXT = {".png", ".jpg", ".jpeg", ".webp"}
 NAME_RE = re.compile(r"^[\w\-. ]{1,200}$", re.UNICODE)
 
