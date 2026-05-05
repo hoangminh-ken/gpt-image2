@@ -17,7 +17,10 @@ export function App() {
         <NavLink to="/jobs/new" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
           New Job
         </NavLink>
-        <div className="mt-auto text-xs text-slate-400 px-3">v0.3.0 · Phase 3</div>
+        <NavLink to="/cost" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
+          Cost
+        </NavLink>
+        <div className="mt-auto text-xs text-slate-400 px-3">v0.5.0 · Phase 5</div>
       </aside>
       <main className="flex-1 p-6 overflow-auto">
         <Outlet />

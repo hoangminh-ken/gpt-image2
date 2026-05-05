@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import jobs, preview, uploads, ws
+from app.api import cost, jobs, preview, uploads, ws
 from app.config import settings
 from app.core.worker_pool import WorkerPool, resume_scan
 from app.db.session import init_db
@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(preview.router)
     app.include_router(uploads.router)
     app.include_router(ws.router)
+    app.include_router(cost.router)
 
     @app.get("/api/health")
     def health() -> dict:

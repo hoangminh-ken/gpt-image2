@@ -18,7 +18,7 @@ export function Dashboard() {
         </Link>
       </div>
 
-      <CostCards jobs={jobs} />
+      <CostCards />
 
       <section>
         <h2 className="text-sm font-medium text-slate-600 mb-2">Recent jobs</h2>

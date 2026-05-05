@@ -1,10 +1,12 @@
 ---
 phase: 5
 title: "Cost Reconcile + OpenAI Usage API"
-status: pending
+status: completed
 priority: P2
 effort: "0.5d"
 dependencies: [3]
+completed: 2026-05-05
+smoke_test: "PASS — 4 cost tests (summary empty, summary with data + drift calc, reconcile no key 400, reconcile success with respx mock). Backend 41 tests, frontend 346KB."
 ---
 
 # Phase 5: Cost Reconcile + OpenAI Usage API

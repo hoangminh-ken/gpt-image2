@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { App } from './App.tsx'
 import './index.css'
+import { CostPage } from './pages/Cost.tsx'
 import { Dashboard } from './pages/Dashboard.tsx'
 import { JobDetail } from './pages/JobDetail.tsx'
 import { NewJob } from './pages/NewJob.tsx'
@@ -20,6 +21,7 @@ const router = createBrowserRouter([
       { index: true, element: <Dashboard /> },
       { path: 'jobs/new', element: <NewJob /> },
       { path: 'jobs/:id', element: <JobDetail /> },
+      { path: 'cost', element: <CostPage /> },
     ],
   },
 ])
