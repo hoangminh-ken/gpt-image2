@@ -17,6 +17,9 @@ export function App() {
         <NavLink to="/jobs/new" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
           New Job
         </NavLink>
+        <NavLink to="/history" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
+          History
+        </NavLink>
         <NavLink to="/cost" className={({ isActive }) => `${linkBase} ${isActive ? active : inactive}`}>
           Cost
         </NavLink>

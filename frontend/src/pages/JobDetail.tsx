@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ImagePreviewModal } from '../components/ImagePreviewModal'
 import { ItemRow } from '../components/ItemRow'
 import { JobControls } from '../components/JobControls'
+import { OpenFolderButton } from '../components/OpenFolderButton'
 import { ProgressBar } from '../components/ProgressBar'
 import { useJob } from '../hooks/useJob'
 import { useJobWs } from '../hooks/useJobWs'
@@ -13,6 +16,8 @@ export function JobDetail() {
   const { data: job, isLoading, error } = useJob(jobId)
   useJobWs(Number.isFinite(jobId) ? jobId : undefined, !!job)
 
+  const [preview, setPreview] = useState<{ src: string; caption: string } | null>(null)
+
   if (Number.isNaN(jobId)) return <div className="text-rose-600">Invalid job id</div>
   if (isLoading) return <div className="text-slate-500 text-sm">Loading…</div>
   if (error) return <div className="text-rose-600 text-sm">{(error as Error).message}</div>
@@ -20,11 +25,15 @@ export function JobDetail() {
 
   const totalCost = job.items.reduce((s, i) => s + i.cost_usd, 0)
   const badge = jobBadge(job.status)
+  const jobOutputDir = `outputs/${job.id}`
+  const hasOutputs = job.items.some((i) => !!i.output_path)
 
   return (
     <div className="space-y-5">
       <div className="flex items-center text-sm text-slate-500">
         <Link to="/" className="hover:underline">Dashboard</Link>
+        <span className="mx-1.5">›</span>
+        <Link to="/history" className="hover:underline">History</Link>
         <span className="mx-1.5">›</span>
         <span>Job #{job.id}</span>
       </div>
@@ -52,12 +61,13 @@ export function JobDetail() {
 
         <ProgressBar done={job.done} failed={job.failed} total={job.total} />
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="text-sm">
             <span className="text-slate-500">Total cost: </span>
             <span className="font-medium tabular-nums">{formatUSD(totalCost)}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {hasOutputs && <OpenFolderButton path={jobOutputDir} label="Open output folder" />}
             {job.done > 0 && (
               <a
                 href={`/api/jobs/${job.id}/export.zip`}
@@ -75,8 +85,8 @@ export function JobDetail() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-xs text-slate-600">
             <tr className="text-left">
-              <th className="px-3 py-2 w-12">#</th>
-              <th className="px-3 py-2 w-20">Output</th>
+              <th className="px-3 py-2 w-10">#</th>
+              <th className="px-3 py-2 w-36">Output</th>
               <th className="px-3 py-2 w-32">Status</th>
               <th className="px-3 py-2">Prompt / refs</th>
               <th className="px-3 py-2 w-32">Tokens (in/out)</th>
@@ -86,11 +96,22 @@ export function JobDetail() {
           </thead>
           <tbody>
             {job.items.map((it) => (
-              <ItemRow key={it.id} jobId={job.id} item={it} />
+              <ItemRow
+                key={it.id}
+                jobId={job.id}
+                item={it}
+                onPreview={(src, caption) => setPreview({ src, caption })}
+              />
             ))}
           </tbody>
         </table>
       </div>
+
+      <ImagePreviewModal
+        src={preview?.src ?? null}
+        caption={preview?.caption}
+        onClose={() => setPreview(null)}
+      />
     </div>
   )
 }

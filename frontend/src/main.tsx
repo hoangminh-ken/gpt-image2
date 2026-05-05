@@ -6,6 +6,7 @@ import { App } from './App.tsx'
 import './index.css'
 import { CostPage } from './pages/Cost.tsx'
 import { Dashboard } from './pages/Dashboard.tsx'
+import { History } from './pages/History.tsx'
 import { JobDetail } from './pages/JobDetail.tsx'
 import { NewJob } from './pages/NewJob.tsx'
 import { SettingsPage } from './pages/Settings.tsx'
@@ -20,6 +21,7 @@ const router = createBrowserRouter([
     element: <App />,
     children: [
       { index: true, element: <Dashboard /> },
+      { path: 'history', element: <History /> },
       { path: 'jobs/new', element: <NewJob /> },
       { path: 'jobs/:id', element: <JobDetail /> },
       { path: 'cost', element: <CostPage /> },

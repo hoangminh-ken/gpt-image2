@@ -95,4 +95,6 @@ export const jobsApi = {
     return res.json() as Promise<ExcelParseResult>
   },
   createExcelJob: (body: CreateExcelJob) => api.post<Job>('/api/jobs/excel', body),
+  openFolder: (path: string, selectFile = false) =>
+    api.post<{ ok: boolean; opened: string }>('/api/system/open-folder', { path, select_file: selectFile }),
 }
