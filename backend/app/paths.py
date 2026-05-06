@@ -45,7 +45,10 @@ def user_data_root() -> Path:
 
 
 def env_file_path() -> Path:
-    """Where .env lives. In frozen mode, in user_data_root; in dev, backend/.env."""
+    """Where .env lives. Override via GPT_IMAGE2_ENV_FILE for testing."""
+    override = os.environ.get("GPT_IMAGE2_ENV_FILE")
+    if override:
+        return Path(override)
     if is_frozen():
         return user_data_root() / ".env"
     return Path(__file__).resolve().parents[1] / ".env"

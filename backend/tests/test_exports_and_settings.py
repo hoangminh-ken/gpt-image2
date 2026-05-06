@@ -85,6 +85,46 @@ def test_export_zip_no_items(tmp_workspace: Path):
         assert resp.status_code == 404
 
 
+def test_settings_update_writes_env_and_mutates_live(tmp_workspace: Path, monkeypatch):
+    # Point env file to tmpdir via env var (honored by app.paths.env_file_path)
+    fake_env = tmp_workspace / ".env"
+    monkeypatch.setenv("GPT_IMAGE2_ENV_FILE", str(fake_env))
+
+    from app.main import create_app
+    app = create_app()
+
+    with TestClient(app) as client:
+        # PUT a key
+        resp = client.put("/api/settings", json={"openai_api_key": "sk-newkey-12345678901234567890"})
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["openai_api_key_set"] is True
+        # Persisted to .env
+        assert fake_env.read_text(encoding="utf-8").splitlines().__contains__(
+            "OPENAI_API_KEY=sk-newkey-12345678901234567890"
+        )
+        # Live: GET reflects new key
+        get = client.get("/api/settings").json()
+        assert get["openai_api_key_set"] is True
+        # Update model + concurrency at once
+        resp = client.put("/api/settings", json={
+            "openai_image_model": "gpt-image-1-mini",
+            "default_concurrency": 3,
+        })
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["openai_image_model"] == "gpt-image-1-mini"
+        # Concurrency is RESTART_FIELDS — should be flagged
+        assert "default_concurrency" in body.get("restart_required_for", [])
+        # Empty string clears
+        resp = client.put("/api/settings", json={"openai_admin_key": ""})
+        assert resp.status_code == 200
+        assert resp.json()["openai_admin_key_set"] is False
+        # Validation: out-of-range concurrency rejected
+        resp = client.put("/api/settings", json={"default_concurrency": 999})
+        assert resp.status_code == 422
+
+
 def test_settings_masks_keys(tmp_workspace: Path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890abcdef1234567890abcdef")
     import sys

@@ -98,3 +98,31 @@ export const jobsApi = {
   openFolder: (path: string, selectFile = false) =>
     api.post<{ ok: boolean; opened: string }>('/api/system/open-folder', { path, select_file: selectFile }),
 }
+
+export interface SettingsOut {
+  openai_api_key_masked: string
+  openai_admin_key_masked: string
+  openai_api_key_set: boolean
+  openai_admin_key_set: boolean
+  openai_image_model: string
+  default_concurrency: number
+  max_ref_dimension: number
+  output_dir: string
+  upload_dir: string
+  env_file_path: string
+  restart_required_for: string[]
+}
+
+export interface SettingsUpdate {
+  openai_api_key?: string | null
+  openai_admin_key?: string | null
+  openai_image_model?: string | null
+  default_concurrency?: number | null
+  max_ref_dimension?: number | null
+}
+
+export const settingsApi = {
+  get: () => api.get<SettingsOut>('/api/settings'),
+  update: (body: SettingsUpdate) => api.put<SettingsOut>('/api/settings', body),
+  testKey: () => api.get<{ ok: boolean; error?: string; models_sample?: string[] }>('/api/settings/test-key'),
+}

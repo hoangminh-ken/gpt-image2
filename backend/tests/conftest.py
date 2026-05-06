@@ -24,6 +24,9 @@ def tmp_workspace(monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     monkeypatch.setenv("OUTPUT_DIR", str(workdir / "outputs"))
     monkeypatch.setenv("UPLOAD_DIR", str(workdir / "uploads"))
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-fake")
+    # Hard isolation: redirect env file to a tmp location so no test ever
+    # writes into the real backend/.env (this would clobber real API keys).
+    monkeypatch.setenv("GPT_IMAGE2_ENV_FILE", str(workdir / "_test.env"))
     # Force re-import of settings + engine
     for mod in list(sys.modules.keys()):
         if mod.startswith("app."):

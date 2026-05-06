@@ -14,9 +14,9 @@ import sys
 # raises AttributeError during Config(...) init. Patch BEFORE any other import
 # touches stdio (logging, uvicorn, etc.).
 if sys.stdout is None:
-    sys.stdout = open(os.devnull, "w")
+    sys.stdout = open(os.devnull, "w")  # noqa: SIM115 — long-lived stream redirect, no context mgr
 if sys.stderr is None:
-    sys.stderr = open(os.devnull, "w")
+    sys.stderr = open(os.devnull, "w")  # noqa: SIM115
 
 import logging  # noqa: E402
 import logging.handlers  # noqa: E402
