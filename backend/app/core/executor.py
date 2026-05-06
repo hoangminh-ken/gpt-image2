@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core import openai_client
+from app.core.key_manager import key_manager
 from app.core.pricing import compute_cost
 from app.core.retry_policy import backoff_seconds, should_retry
 from app.core.ws_broker import broker
@@ -89,12 +90,27 @@ async def run_item(item_id: int) -> None:
         db.commit()
         await _publish(item)
 
+        # Pick a key (round-robin across enabled keys; falls back to .env key)
+        try:
+            key_id, api_key = key_manager.next()
+        except RuntimeError as exc:
+            item.status = "failed_permanent"
+            item.error = str(exc)[:1000]
+            item.finished_at = datetime.utcnow()
+            db.commit()
+            await _publish(item)
+            return
+
         try:
             result = await openai_client.edit_image_async(
-                prompt=item.prompt, ref_paths=item.refs_json
+                prompt=item.prompt, ref_paths=item.refs_json, api_key=api_key,
             )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Item %s attempt %s failed: %s", item.id, item.attempts, exc)
+            # If 429, mark this key as cooled-down so dispatcher skips it briefly
+            status = getattr(exc, "status_code", None) or getattr(exc, "http_status", None)
+            if status == 429 and key_id is not None:
+                key_manager.mark_rate_limited(key_id, cooldown_seconds=60)
+            logger.warning("Item %s attempt %s failed (key=%s): %s", item.id, item.attempts, key_id, exc)
             if should_retry(exc, item.attempts):
                 delay = backoff_seconds(item.attempts)
                 item.status = "failed_retryable"
@@ -107,6 +123,8 @@ async def run_item(item_id: int) -> None:
             db.commit()
             await _publish(item)
             return
+
+        key_manager.mark_used(key_id)
 
         # success
         job_dir = settings.output_path / str(item.job_id)

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { settingsApi, type SettingsOut, type SettingsUpdate } from '../api/jobs'
+import { ApiKeysManager } from '../components/ApiKeysManager'
 
 interface FormState {
   openai_api_key: string
@@ -106,8 +107,18 @@ export function SettingsPage() {
         </div>
       )}
 
-      <Section title="OpenAI keys">
-        <Field label="API key (required)">
+      <Section title="API keys (multi-key parallelism)">
+        <ApiKeysManager />
+        <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+          💡 Add multiple keys to multiply parallel capacity. Worker pool concurrency =
+          enabled keys × per-key concurrency. Keys getting 429 are auto-cooled for 60s.
+          Single-key fallback (.env) is used when no keys are added here.
+        </div>
+      </Section>
+
+      <Section title="Single key fallback (legacy / .env)">
+        <Field label="API key">
+
           {!editingApi ? (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono text-sm">

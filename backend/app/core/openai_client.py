@@ -44,16 +44,18 @@ def _resize_if_needed(path: Path, max_dim: int) -> bytes:
         return buf.getvalue()
 
 
-def _client() -> OpenAI:
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY not configured in .env")
-    return OpenAI(api_key=settings.openai_api_key)
+def _client(api_key: str | None = None) -> OpenAI:
+    key = api_key or settings.openai_api_key
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY not configured")
+    return OpenAI(api_key=key)
 
 
-def _async_client() -> AsyncOpenAI:
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY not configured in .env")
-    return AsyncOpenAI(api_key=settings.openai_api_key)
+def _async_client(api_key: str | None = None) -> AsyncOpenAI:
+    key = api_key or settings.openai_api_key
+    if not key:
+        raise RuntimeError("OPENAI_API_KEY not configured")
+    return AsyncOpenAI(api_key=key)
 
 
 def _prepare_image_arg(ref_paths: list[str]):
@@ -87,13 +89,14 @@ def edit_image(
     ref_paths: list[str],
     size: str = DEFAULT_SIZE,
     quality: str = DEFAULT_QUALITY,
+    api_key: str | None = None,
 ) -> EditResult:
     """Call gpt-image-2 edit with one or more reference images.
 
     Returns generated PNG bytes plus token usage from response.usage.
     """
     image_arg = _prepare_image_arg(ref_paths)
-    resp = _client().images.edit(
+    resp = _client(api_key).images.edit(
         model=settings.openai_image_model,
         image=image_arg,
         prompt=prompt,
@@ -109,10 +112,11 @@ async def edit_image_async(
     ref_paths: list[str],
     size: str = DEFAULT_SIZE,
     quality: str = DEFAULT_QUALITY,
+    api_key: str | None = None,
 ) -> EditResult:
     """Async variant. Image prep is sync (CPU/IO short), API call is awaited."""
     image_arg = _prepare_image_arg(ref_paths)
-    client = _async_client()
+    client = _async_client(api_key)
     resp = await client.images.edit(
         model=settings.openai_image_model,
         image=image_arg,

@@ -7,6 +7,7 @@ from datetime import datetime
 
 from app.config import settings
 from app.core.executor import run_item, update_job_terminal_status
+from app.core.key_manager import key_manager
 from app.db.models import Job, JobItem
 from app.db.session import SessionLocal
 
@@ -15,7 +16,9 @@ logger = logging.getLogger("gpt_image2.pool")
 
 class WorkerPool:
     def __init__(self, concurrency: int | None = None) -> None:
-        self.concurrency = concurrency or settings.default_concurrency
+        per_key = concurrency or settings.default_concurrency
+        # Total parallel = enabled_keys × per_key (1 key worth if no DB keys)
+        self.concurrency = key_manager.total_capacity(per_key)
         self.queue: asyncio.Queue[int] = asyncio.Queue()
         self._consumers: list[asyncio.Task] = []
         self._scheduler: asyncio.Task | None = None

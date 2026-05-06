@@ -126,3 +126,44 @@ export const settingsApi = {
   update: (body: SettingsUpdate) => api.put<SettingsOut>('/api/settings', body),
   testKey: () => api.get<{ ok: boolean; error?: string; models_sample?: string[] }>('/api/settings/test-key'),
 }
+
+export interface SavedPrompt {
+  id: number
+  name: string
+  content: string
+  used_count: number
+  created_at: string
+  updated_at: string
+}
+
+export const promptsApi = {
+  list: () => api.get<SavedPrompt[]>('/api/prompts'),
+  create: (body: { name: string; content: string }) => api.post<SavedPrompt>('/api/prompts', body),
+  update: (id: number, body: { name: string; content: string }) =>
+    api.put<SavedPrompt>(`/api/prompts/${id}`, body),
+  delete: (id: number) => fetch(`/api/prompts/${id}`, { method: 'DELETE' }).then((r) => {
+    if (!r.ok && r.status !== 204) throw new Error(`HTTP ${r.status}`)
+  }),
+  use: (id: number) => api.post<SavedPrompt>(`/api/prompts/${id}/use`),
+}
+
+export interface ApiKeyOut {
+  id: number
+  name: string
+  key_masked: string
+  enabled: boolean
+  last_used_at: string | null
+  rate_limited_until: string | null
+  created_at: string
+}
+
+export const keysApi = {
+  list: () => api.get<ApiKeyOut[]>('/api/keys'),
+  create: (body: { name: string; key: string }) => api.post<ApiKeyOut>('/api/keys', body),
+  update: (id: number, body: { name?: string; enabled?: boolean }) =>
+    api.put<ApiKeyOut>(`/api/keys/${id}`, body),
+  delete: (id: number) => fetch(`/api/keys/${id}`, { method: 'DELETE' }).then((r) => {
+    if (!r.ok && r.status !== 204) throw new Error(`HTTP ${r.status}`)
+  }),
+  test: (id: number) => api.post<{ ok: boolean; error?: string; models_sample?: string[] }>(`/api/keys/${id}/test`),
+}

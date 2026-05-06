@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import cost, exports, jobs, preview, system, uploads, ws
+from app.api import cost, exports, jobs, keys, preview, prompts, system, uploads, ws
 from app.api import settings as settings_api
 from app.config import settings
 from app.core.worker_pool import WorkerPool, resume_scan
@@ -57,6 +57,8 @@ def create_app() -> FastAPI:
     app.include_router(settings_api.router)
     app.include_router(exports.router)
     app.include_router(system.router)
+    app.include_router(prompts.router)
+    app.include_router(keys.router)
 
     @app.get("/api/health")
     def health() -> dict:

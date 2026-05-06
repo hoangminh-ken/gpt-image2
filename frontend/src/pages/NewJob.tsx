@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { jobsApi, type ExcelParseResult } from '../api/jobs'
 import { ExcelPreviewTable } from '../components/ExcelPreviewTable'
 import { ExcelUpload } from '../components/ExcelUpload'
+import { PromptPicker } from '../components/PromptPicker'
 import { RefInputHybrid } from '../components/RefInputHybrid'
 import { useCreateJob } from '../hooks/useJobs'
 
@@ -67,6 +68,7 @@ function TemplateForm() {
           placeholder="One prompt applied to each reference image."
         />
       </div>
+      <PromptPicker value={prompt} onChange={setPrompt} />
       <RefInputHybrid paths={refs} onChange={setRefs} />
       <div className="border-t border-slate-200 pt-4 flex items-center justify-between">
         <div className="text-sm text-slate-600">
