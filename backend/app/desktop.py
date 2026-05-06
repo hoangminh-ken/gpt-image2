@@ -1,20 +1,32 @@
 """Desktop entry point.
 
-Run as packaged .exe (PyInstaller): launches a native window via pywebview
-pointing at an embedded uvicorn server. Falls back to default browser if
-pywebview unavailable. First-run bootstraps a writable .env from template.
+Run as packaged .exe (PyInstaller --windowed): launches a native window via
+pywebview pointing at an embedded uvicorn server. Falls back to default browser
+if pywebview unavailable. First-run bootstraps a writable .env from template.
 """
 from __future__ import annotations
 
-import logging
-import socket
+import os
 import sys
-import threading
-import time
-import urllib.request
-import webbrowser
 
-from app.paths import env_example_template, env_file_path, user_data_root
+# CRITICAL: in PyInstaller --windowed mode (--noconsole), sys.stdout/stderr
+# are None. uvicorn's default log formatter calls .isatty() on them and
+# raises AttributeError during Config(...) init. Patch BEFORE any other import
+# touches stdio (logging, uvicorn, etc.).
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+
+import logging  # noqa: E402
+import logging.handlers  # noqa: E402
+import socket  # noqa: E402
+import threading  # noqa: E402
+import time  # noqa: E402
+import urllib.request  # noqa: E402
+import webbrowser  # noqa: E402
+
+from app.paths import env_example_template, env_file_path, is_frozen, user_data_root  # noqa: E402
 
 logger = logging.getLogger("gpt_image2.desktop")
 
@@ -22,8 +34,27 @@ WINDOW_TITLE = "gpt-image2 — Batch Image Generator"
 DEFAULT_PORT = 8767
 
 
+def _setup_logging() -> None:
+    """File-based logging in frozen mode (no console to print to)."""
+    fmt = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+    handlers: list[logging.Handler] = []
+    if is_frozen():
+        log_dir = user_data_root() / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        fh = logging.handlers.RotatingFileHandler(
+            log_dir / "app.log", maxBytes=2_000_000, backupCount=3, encoding="utf-8",
+        )
+        fh.setFormatter(logging.Formatter(fmt))
+        handlers.append(fh)
+    else:
+        sh = logging.StreamHandler()
+        sh.setFormatter(logging.Formatter(fmt))
+        handlers.append(sh)
+    logging.basicConfig(level=logging.INFO, handlers=handlers, force=True)
+
+
 def _ensure_env() -> bool:
-    """Create .env from template if missing. Returns True if a fresh template was written."""
+    """Create .env from template if missing. Returns True if fresh template was written."""
     p = env_file_path()
     if p.exists():
         return False
@@ -56,19 +87,31 @@ def _wait_for_health(url: str, timeout: float = 30.0) -> bool:
 
 
 def _run_server(port: int) -> threading.Thread:
-    """Start uvicorn in a daemon thread."""
+    """Start uvicorn in a daemon thread.
+
+    log_config=None disables uvicorn's dictConfig (avoids ColourizedFormatter +
+    isatty() crash in windowed mode). Our own logging already covers events.
+    """
     import uvicorn
 
     from app.main import app
 
     config = uvicorn.Config(
-        app, host="127.0.0.1", port=port, log_level="warning",
-        access_log=False, lifespan="on",
+        app,
+        host="127.0.0.1",
+        port=port,
+        log_config=None,         # use our logging, not uvicorn's
+        log_level="warning",
+        access_log=False,
+        lifespan="on",
     )
     server = uvicorn.Server(config)
 
     def run():
-        server.run()
+        try:
+            server.run()
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("uvicorn server thread crashed: %s", exc)
 
     t = threading.Thread(target=run, daemon=True, name="uvicorn-thread")
     t.start()
@@ -82,9 +125,9 @@ def _open_window(url: str) -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("pywebview unavailable (%s); opening browser", exc)
         webbrowser.open(url)
-        # Block on stdin so the console window stays open
+        # Block forever (server runs in daemon thread; user closes via Task Manager
+        # or by opening browser and not closing this process — exposed as fallback only).
         try:
-            print(f"\nServer running at {url}\nPress Ctrl+C to quit.\n")
             while True:
                 time.sleep(60)
         except KeyboardInterrupt:
@@ -96,24 +139,25 @@ def _open_window(url: str) -> None:
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    _setup_logging()
 
     fresh = _ensure_env()
-    data_dir = user_data_root()
-    logger.info("Data directory: %s", data_dir)
+    logger.info("Data directory: %s", user_data_root())
     if fresh:
-        logger.info("Created fresh .env at %s — paste your OPENAI_API_KEY there.", env_file_path())
+        logger.info("Created fresh .env at %s; paste your OPENAI_API_KEY there.", env_file_path())
 
     port = _find_port()
     url = f"http://127.0.0.1:{port}/"
+    logger.info("Starting server on %s", url)
     _run_server(port)
 
     if not _wait_for_health(url):
         logger.error("Server did not become healthy in 30s. Aborting.")
         return 1
 
-    logger.info("Ready: %s", url)
+    logger.info("Server ready, launching window")
     _open_window(url)
+    logger.info("Window closed, exiting")
     return 0
 
 
