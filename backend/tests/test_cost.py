@@ -56,6 +56,39 @@ def test_cost_summary_with_data(tmp_workspace: Path):
         assert abs((body["today"]["drift_pct"] or 0) - 2.5) < 0.1
 
 
+def test_cost_summary_per_key_breakdown(tmp_workspace: Path):
+    from app.db.models import ApiKey, CostByKey
+    from app.db.session import SessionLocal, init_db
+    from app.main import create_app
+
+    init_db()
+    today = date.today().isoformat()
+    db = SessionLocal()
+    try:
+        a = ApiKey(name="Acct A", key="sk-a", enabled=True)
+        b = ApiKey(name="Acct B", key="sk-b", enabled=True)
+        db.add_all([a, b])
+        db.flush()
+        db.add(CostByKey(date=today, api_key_id=a.id, input_tokens=1000, output_tokens=500, cost_usd=Decimal("0.025")))
+        db.add(CostByKey(date=today, api_key_id=b.id, input_tokens=2000, output_tokens=1000, cost_usd=Decimal("0.046")))
+        db.add(CostByKey(date=today, api_key_id=None, input_tokens=500, output_tokens=200, cost_usd=Decimal("0.010")))
+        db.commit()
+    finally:
+        db.close()
+
+    app = create_app()
+    with TestClient(app) as client:
+        body = client.get("/api/cost").json()
+        assert "by_key" in body
+        assert len(body["by_key"]) == 3
+        # Sorted by total descending
+        assert body["by_key"][0]["name"] == "Acct B"
+        assert body["by_key"][0]["total_usd"] == 0.046
+        # NULL api_key_id renders as "Default (.env)"
+        names = [r["name"] for r in body["by_key"]]
+        assert "Default (.env)" in names
+
+
 def test_reconcile_no_admin_key(tmp_workspace: Path):
     from app.main import create_app
 

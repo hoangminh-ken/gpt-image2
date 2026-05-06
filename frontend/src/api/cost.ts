@@ -6,11 +6,20 @@ export interface WindowCost {
   drift_pct: number | null
 }
 
+export interface CostByKey {
+  api_key_id: number | null
+  name: string
+  total_usd: number
+  input_tokens: number
+  output_tokens: number
+}
+
 export interface CostSummary {
   today: WindowCost
   week: WindowCost
   month: WindowCost
   by_day: { date: string; local: number; openai: number }[]
+  by_key: CostByKey[]
   admin_key_configured: boolean
 }
 

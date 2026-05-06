@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.usage_api import UsageApiUnavailable, default_window, fetch_image_usage
-from app.db.models import CostDaily
+from app.db.models import ApiKey, CostByKey, CostDaily
 from app.db.session import get_db
 
 router = APIRouter(prefix="/api/cost", tags=["cost"])
@@ -64,11 +64,44 @@ def cost_summary(db: Session = Depends(get_db)) -> dict:
         key=lambda x: x["date"],
     )
 
+    # Per-key breakdown (last 30 days). Joins with api_keys for friendly names;
+    # rows where api_key_id IS NULL = .env fallback key.
+    keys_lookup = {k.id: k.name for k in db.query(ApiKey).all()}
+    by_key_rows = (
+        db.query(CostByKey)
+        .filter(CostByKey.date >= month_start.isoformat())
+        .all()
+    )
+    by_key_agg: dict[int | None, dict] = defaultdict(lambda: {
+        "name": "", "total_usd": Decimal("0"),
+        "input_tokens": 0, "output_tokens": 0,
+    })
+    for r in by_key_rows:
+        slot = by_key_agg[r.api_key_id]
+        slot["total_usd"] += r.cost_usd or Decimal("0")
+        slot["input_tokens"] += r.input_tokens
+        slot["output_tokens"] += r.output_tokens
+        if not slot["name"]:
+            slot["name"] = keys_lookup.get(r.api_key_id) if r.api_key_id else "Default (.env)"
+
+    by_key = [
+        {
+            "api_key_id": kid,
+            "name": v["name"] or (keys_lookup.get(kid) if kid else "Default (.env)") or "(deleted)",
+            "total_usd": float(v["total_usd"]),
+            "input_tokens": v["input_tokens"],
+            "output_tokens": v["output_tokens"],
+        }
+        for kid, v in by_key_agg.items()
+    ]
+    by_key.sort(key=lambda x: x["total_usd"], reverse=True)
+
     return {
         "today": windowed(today),
         "week": windowed(week_start),
         "month": windowed(month_start),
         "by_day": by_day,
+        "by_key": by_key,
         "admin_key_configured": bool(settings.openai_admin_key),
     }
 

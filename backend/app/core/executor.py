@@ -17,7 +17,7 @@ from app.core.key_manager import key_manager
 from app.core.pricing import compute_cost
 from app.core.retry_policy import backoff_seconds, should_retry
 from app.core.ws_broker import broker
-from app.db.models import CostDaily, Job, JobItem
+from app.db.models import CostByKey, CostDaily, Job, JobItem
 from app.db.session import SessionLocal
 from app.utils.slug import safe_filename, slugify, store_path
 
@@ -32,20 +32,38 @@ def _output_filename(item: JobItem) -> str:
     return f"{item.row_idx:04d}-{slugify(item.prompt)}.png"
 
 
-def _bump_cost_daily(db: Session, in_tokens: int, out_tokens: int, cost: Decimal) -> None:
+def _bump_cost_daily(
+    db: Session, in_tokens: int, out_tokens: int, cost: Decimal,
+    api_key_id: int | None = None,
+) -> None:
     today = date.today().isoformat()
+    # Aggregate (cost_daily) — used for dashboard totals + reconcile vs OpenAI
     row = db.get(CostDaily, (today, "local"))
     if row is None:
-        db.add(
-            CostDaily(
-                date=today, source="local",
-                input_tokens=in_tokens, output_tokens=out_tokens, cost_usd=cost,
-            )
-        )
+        db.add(CostDaily(
+            date=today, source="local",
+            input_tokens=in_tokens, output_tokens=out_tokens, cost_usd=cost,
+        ))
     else:
         row.input_tokens += in_tokens
         row.output_tokens += out_tokens
         row.cost_usd = (row.cost_usd or Decimal("0")) + cost
+
+    # Per-key (cost_by_key) — breakdown of where the spend went
+    by_key = (
+        db.query(CostByKey)
+        .filter(CostByKey.date == today, CostByKey.api_key_id.is_(api_key_id) if api_key_id is None else CostByKey.api_key_id == api_key_id)
+        .one_or_none()
+    )
+    if by_key is None:
+        db.add(CostByKey(
+            date=today, api_key_id=api_key_id,
+            input_tokens=in_tokens, output_tokens=out_tokens, cost_usd=cost,
+        ))
+    else:
+        by_key.input_tokens += in_tokens
+        by_key.output_tokens += out_tokens
+        by_key.cost_usd = (by_key.cost_usd or Decimal("0")) + cost
 
 
 def _item_to_payload(item: JobItem) -> dict:
@@ -142,7 +160,7 @@ async def run_item(item_id: int) -> None:
         item.output_path = store_path(out_file, settings.project_root)
         item.status = "done"
         item.finished_at = datetime.utcnow()
-        _bump_cost_daily(db, result.input_tokens, result.output_tokens, cost)
+        _bump_cost_daily(db, result.input_tokens, result.output_tokens, cost, api_key_id=key_id)
         db.commit()
         await _publish(item)
     finally:
