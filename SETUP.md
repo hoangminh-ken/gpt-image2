@@ -1,5 +1,61 @@
 # Setup Guide — Run gpt-image2 on Another Machine
 
+Two distribution options:
+
+| Mode | Best for | Size | Prereqs on target |
+|------|---------|------|-------------------|
+| **A. Standalone `.exe`** (Windows) | End users — zero setup | ~33 MB single file | Just Windows 10/11 (WebView2 ships with Edge) |
+| **B. Source + launcher** | Devs / cross-platform | ~30 MB source | Python 3.10+, Node 20+ |
+
+→ Pick **A** unless you need to modify code or run on macOS/Linux.
+
+---
+
+## Option A — Distribute the standalone .exe
+
+### Build (one-time, on dev machine)
+
+```cmd
+build-exe.bat
+```
+
+This:
+1. Builds the frontend (`npm run build`)
+2. Bundles backend + frontend + Python runtime via PyInstaller
+3. Outputs `dist/gpt-image2.exe` (~33 MB)
+
+### Distribute
+
+Send `dist/gpt-image2.exe` to the target user. That's it — one file.
+
+### First run on target machine
+
+1. Double-click `gpt-image2.exe`
+2. App creates `%APPDATA%\gpt-image2\.env` with empty key
+3. Open that `.env` in Notepad, paste:
+   ```
+   OPENAI_API_KEY=sk-proj-...your-key-here...
+   ```
+4. Save and close `.env`, then re-launch `gpt-image2.exe`
+5. Native window opens with the dashboard
+
+### Where data lives (Option A)
+
+```
+%APPDATA%\gpt-image2\
+├── .env                    ← your API key
+├── data\
+│   ├── app.db              ← job history
+│   └── uploads\            ← drag-dropped refs
+└── outputs\                ← generated images
+```
+
+To **uninstall**: delete the `.exe` and the `%APPDATA%\gpt-image2` folder.
+
+---
+
+## Option B — Source + launcher (dev mode)
+
 This guide walks you through installing and running gpt-image2 on a fresh Windows / macOS / Linux machine.
 
 ---

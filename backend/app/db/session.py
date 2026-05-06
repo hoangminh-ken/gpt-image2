@@ -14,7 +14,9 @@ def _make_engine():
     url = settings.database_url
     if url.startswith("sqlite:///"):
         rel = url[len("sqlite:///"):]
-        if not rel.startswith("/") and ":" not in rel[:3]:  # not absolute
+        # Resolve path against settings.project_root (= user_data_root in frozen mode,
+        # repo root in dev). ":" check guards Windows drive-letter absolute paths.
+        if not rel.startswith("/") and (len(rel) < 2 or rel[1] != ":"):
             abs_path = settings.project_root / rel
             abs_path.parent.mkdir(parents=True, exist_ok=True)
             url = f"sqlite:///{abs_path}"

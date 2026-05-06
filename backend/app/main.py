@@ -14,6 +14,7 @@ from app.api import settings as settings_api
 from app.config import settings
 from app.core.worker_pool import WorkerPool, resume_scan
 from app.db.session import init_db
+from app.paths import bundle_root
 
 logger = logging.getLogger("gpt_image2")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -63,7 +64,7 @@ def create_app() -> FastAPI:
 
     # Mount built frontend if present (production / packaged mode).
     # In dev, Vite serves the SPA on :5173 with proxy to /api here.
-    dist = settings.project_root / "frontend" / "dist"
+    dist = bundle_root() / "frontend" / "dist"
     if dist.is_dir():
         app.mount(
             "/assets",

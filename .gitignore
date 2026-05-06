@@ -88,6 +88,12 @@ outputs/
 .venv/
 venv/
 
+# PyInstaller build artifacts
+build/
+dist/gpt-image2.exe
+dist/gpt-image2
+*.spec.bak
+
 # Generated runtime layout for release/install smoke tests
 /.claude/
 # But track repo-level rules that Claude Code reads

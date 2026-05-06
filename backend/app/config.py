@@ -5,12 +5,12 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_BACKEND_DIR = Path(__file__).resolve().parents[1]
+from app.paths import env_file_path, is_frozen, user_data_root
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(str(_BACKEND_DIR / ".env"), ".env"),  # backend/.env primary, CWD fallback
+        env_file=(str(env_file_path()), ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -33,7 +33,8 @@ class Settings(BaseSettings):
 
     @property
     def project_root(self) -> Path:
-        return Path(__file__).resolve().parents[2]
+        # Used as the data root: dev = repo root, frozen = APPDATA/gpt-image2
+        return user_data_root() if is_frozen() else Path(__file__).resolve().parents[2]
 
     def _resolve_dir(self, value: str) -> Path:
         p = Path(value)
