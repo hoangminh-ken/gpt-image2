@@ -200,7 +200,7 @@ export function SettingsPage() {
             Default: <code>gpt-image-2</code>. Pin a snapshot like <code>gpt-image-2-2026-04-21</code> for reproducibility.
           </div>
         </Field>
-        <Field label="Default concurrency (1–20)">
+        <Field label="Concurrency PER KEY (1–20)">
           <input
             type="number"
             min={1}
@@ -210,6 +210,10 @@ export function SettingsPage() {
             onChange={(e) => setForm({ ...form, default_concurrency: Number(e.target.value) })}
           />
           <span className="text-[11px] text-amber-700 ml-2">restart required</span>
+          <div className="text-[11px] text-slate-500 mt-1">
+            Total in-flight = enabled keys × this. e.g. 2 keys × 5 = <strong>10 parallel</strong>.
+            Lower (e.g. 3) if you hit 429 rate limits frequently.
+          </div>
         </Field>
         <Field label="Max ref image dimension (512–4096 px, longest side)">
           <input

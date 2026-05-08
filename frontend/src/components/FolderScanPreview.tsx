@@ -4,6 +4,7 @@ import { OpenFolderButton } from './OpenFolderButton'
 interface Props { result: FolderScanResult }
 
 export function FolderScanPreview({ result }: Props) {
+  const truncated = result.truncated_subfolders > 0 || result.truncated_by_total
   return (
     <div className="space-y-2">
       <div className="text-sm text-slate-700">
@@ -13,6 +14,20 @@ export function FolderScanPreview({ result }: Props) {
           <> · <span className="text-amber-700">{result.total_images - result.total_to_run}</span> already done (skipped)</>
         )}
       </div>
+      {truncated && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded p-2 space-y-1">
+          <div className="font-medium">⚠ Scan was truncated:</div>
+          {result.truncated_subfolders > 0 && (
+            <div>• {result.truncated_subfolders} additional subfolder(s) NOT scanned (cap = 5000).</div>
+          )}
+          {result.truncated_by_total && (
+            <div>• Total image cap reached (50,000) — remaining subfolders skipped.</div>
+          )}
+          <div className="text-rose-700">
+            Solution: split parent into smaller batches, or open an issue to raise the cap further.
+          </div>
+        </div>
+      )}
       <div className="border border-slate-200 rounded max-h-72 overflow-auto bg-white">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 text-slate-600 sticky top-0 z-10">

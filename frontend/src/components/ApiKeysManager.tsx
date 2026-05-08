@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { keysApi, type ApiKeyOut } from '../api/jobs'
+import { keysApi, settingsApi, type ApiKeyOut } from '../api/jobs'
 
 interface TestResult { ok: boolean; error?: string; models_sample?: string[] }
 
 export function ApiKeysManager() {
   const qc = useQueryClient()
   const { data: keys = [] } = useQuery({ queryKey: ['keys'], queryFn: keysApi.list })
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const perKey = settings?.default_concurrency ?? 5
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [keyVal, setKeyVal] = useState('')
@@ -31,15 +33,21 @@ export function ApiKeysManager() {
   })
 
   const enabledCount = keys.filter((k) => k.enabled).length
-  const totalCapacity = enabledCount > 0 ? enabledCount * 5 : 5  // 5 = default per-key concurrency
+  const totalCapacity = enabledCount > 0 ? enabledCount * perKey : perKey
 
   return (
     <div className="space-y-3">
       <div className="text-xs text-slate-600">
         {enabledCount === 0
-          ? <>No keys here yet — using single key from <code>.env</code> (effective concurrency: 5).</>
-          : <>{enabledCount} enabled key(s) → effective parallel capacity: <strong>{totalCapacity}</strong> requests
-              {' '}(round-robin distribution across keys; each gets ~5 concurrent).</>}
+          ? <>No keys here yet — using single key from <code>.env</code> (effective concurrency: {perKey}).</>
+          : <>{enabledCount} enabled key(s) × {perKey} per-key = <strong>{totalCapacity}</strong> in-flight requests
+              {' '}(round-robin distribution; on 429 a key cools 60s, traffic shifts to others).</>}
+      </div>
+      <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+        ⚠ Pool size is locked at app startup. After adding/removing keys or
+        changing per-key concurrency, <strong>restart the app</strong> for the
+        new capacity to take effect (current running pool may still be at the
+        previous size).
       </div>
 
       <ul className="divide-y divide-slate-100 border border-slate-200 rounded">

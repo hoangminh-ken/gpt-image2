@@ -107,6 +107,8 @@ export interface FolderScanResult {
   subfolders: { name: string; path: string; images: string[]; skipped_existing: number }[]
   total_images: number
   total_to_run: number
+  truncated_subfolders: number
+  truncated_by_total: boolean
   error: string | null
 }
 
