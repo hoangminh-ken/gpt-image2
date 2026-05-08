@@ -79,6 +79,7 @@ export const jobsApi = {
   cancel: (id: number) => api.post<Job>(`/api/jobs/${id}/cancel`),
   retryItem: (jobId: number, itemId: number) =>
     api.post<JobItem>(`/api/jobs/${jobId}/items/${itemId}/retry`),
+  retryAllFailed: (jobId: number) => api.post<Job>(`/api/jobs/${jobId}/retry-failed`),
   uploadRefs: (files: File[]) =>
     api.upload<{ files: { name: string; path: string; abs_path: string; size: number }[] }>(
       '/api/uploads/refs', files,

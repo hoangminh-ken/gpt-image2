@@ -125,6 +125,103 @@ def test_key_manager_skips_rate_limited(tmp_workspace: Path):
         assert k == "sk-cool"  # hot key skipped
 
 
+def test_pool_resizes_when_key_added(tmp_workspace: Path):
+    """Adding/enabling a key via API should grow pool capacity without restart."""
+    from app.main import create_app
+
+    app = create_app()
+    with TestClient(app) as client:
+        initial_capacity = app.state.pool.concurrency
+        # Add a real key → should grow pool
+        r = client.post("/api/keys", json={"name": "k1", "key": "sk-test-aaaaaaaaaaaaaaaaaaaaaaaa"})
+        assert r.status_code == 201
+        # ensure_capacity grew the pool
+        assert app.state.pool.concurrency >= initial_capacity
+        # Add 2nd key
+        client.post("/api/keys", json={"name": "k2", "key": "sk-test-bbbbbbbbbbbbbbbbbbbbbbbb"})
+        # 2 enabled keys × per_key_concurrency
+        assert app.state.pool.concurrency >= 2 * 5
+
+
+def test_retry_all_failed(tmp_workspace: Path, sample_png: Path):
+    """POST /api/jobs/{id}/retry-failed re-queues failed items."""
+    import io
+    import time
+    from unittest.mock import AsyncMock
+
+    from PIL import Image
+
+    from app.core import openai_client
+    from app.main import create_app
+
+    buf = io.BytesIO()
+    Image.new("RGB", (16, 16), (1, 2, 3)).save(buf, format="PNG")
+    fake = openai_client.EditResult(image_bytes=buf.getvalue(), input_tokens=10, output_tokens=5)
+
+    class FakeBadRequest(Exception):
+        status_code = 400  # not retryable → fails permanently
+
+    call_count = {"n": 0}
+
+    async def fail_then_ok(*a, **kw):
+        call_count["n"] += 1
+        if call_count["n"] <= 2:
+            raise FakeBadRequest("bad")
+        return fake
+
+    app = create_app()
+    with patch("app.core.executor.openai_client.edit_image_async",
+               new=AsyncMock(side_effect=fail_then_ok)), TestClient(app) as client:
+        r = client.post("/api/jobs", json={
+            "name": "retry-all-test", "mode": "template",
+            "template_prompt": "x", "ref_paths": [str(sample_png), str(sample_png)],
+        })
+        job_id = r.json()["id"]
+
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            d = client.get(f"/api/jobs/{job_id}").json()
+            if d["status"] in ("done", "failed"):
+                break
+            time.sleep(0.1)
+        assert d["status"] == "failed", d
+        assert d["failed"] == 2
+
+        # Now retry all → should succeed (call_count > 2 returns ok)
+        r = client.post(f"/api/jobs/{job_id}/retry-failed")
+        assert r.status_code == 200
+
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            d = client.get(f"/api/jobs/{job_id}").json()
+            if d["status"] == "done":
+                break
+            time.sleep(0.1)
+        assert d["status"] == "done"
+        assert d["done"] == 2
+
+
+def test_retry_all_failed_when_none(tmp_workspace: Path):
+    from app.db.models import Job
+    from app.db.session import SessionLocal, init_db
+    from app.main import create_app
+
+    init_db()
+    db = SessionLocal()
+    try:
+        j = Job(name="empty", mode="template", status="done")
+        db.add(j)
+        db.commit()
+        jid = j.id
+    finally:
+        db.close()
+
+    app = create_app()
+    with TestClient(app) as client:
+        r = client.post(f"/api/jobs/{jid}/retry-failed")
+        assert r.status_code == 409
+
+
 def test_executor_uses_key_manager(tmp_workspace: Path, sample_png: Path):
     """End-to-end: job runs, executor pulls key from manager, mark_used called."""
     import io

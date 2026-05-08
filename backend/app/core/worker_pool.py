@@ -23,12 +23,41 @@ class WorkerPool:
         self._consumers: list[asyncio.Task] = []
         self._scheduler: asyncio.Task | None = None
         self._stopping = asyncio.Event()
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     async def start(self) -> None:
+        self._loop = asyncio.get_running_loop()
         for i in range(self.concurrency):
             self._consumers.append(asyncio.create_task(self._consume(i), name=f"worker-{i}"))
         self._scheduler = asyncio.create_task(self._schedule_retries(), name="retry-scheduler")
         logger.info("Worker pool started with %d consumers", self.concurrency)
+
+    def ensure_capacity(self) -> int:
+        """Recompute target capacity from KeyManager and spawn extra consumers
+        if needed. Does NOT shrink (live consumers complete naturally).
+
+        Call this after key add/enable or concurrency change so the user does
+        not have to restart the app to use new parallelism. Thread-safe — can
+        be called from sync FastAPI route handlers (different thread than loop).
+        """
+        per_key = settings.default_concurrency
+        target = key_manager.total_capacity(per_key)
+        current = len(self._consumers)
+        if target > current and self._loop is not None:
+            grown = target - current
+            # Schedule task creation on the pool's event loop. We don't await
+            # the future — it's fire-and-forget; consumers will start dequeuing.
+            self._loop.call_soon_threadsafe(self._spawn_consumers, current, target)
+            self.concurrency = target
+            logger.info("Pool capacity grown %d → %d consumers (+%d)", current, target, grown)
+        return target
+
+    def _spawn_consumers(self, start_idx: int, end_idx: int) -> None:
+        """Runs on the event loop thread. Creates new consumer tasks."""
+        for i in range(start_idx, end_idx):
+            self._consumers.append(
+                asyncio.create_task(self._consume(i), name=f"worker-{i}")
+            )
 
     async def shutdown(self, timeout: float = 60.0) -> None:
         self._stopping.set()

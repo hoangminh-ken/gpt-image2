@@ -291,6 +291,39 @@ def cancel_job(job_id: int, db: Session = Depends(get_db)):
     return _job_to_out(job, list(job.items))
 
 
+@router.post("/{job_id}/retry-failed", response_model=JobOut)
+def retry_failed_items(job_id: int, request: Request, db: Session = Depends(get_db)):
+    """Re-queue every failed item in this job (failed_permanent + failed_retryable
+    + cancelled). Use after fixing root cause (e.g. enabling org verification,
+    restoring a disabled key)."""
+    job = db.get(Job, job_id)
+    if job is None:
+        raise HTTPException(404, "Job not found")
+    items = (
+        db.query(JobItem)
+        .filter(
+            JobItem.job_id == job_id,
+            JobItem.status.in_(("failed_permanent", "failed_retryable", "cancelled")),
+        )
+        .all()
+    )
+    if not items:
+        raise HTTPException(409, "No failed items to retry")
+    for it in items:
+        it.status = "pending"
+        it.attempts = 0
+        it.error = None
+        it.next_retry_at = None
+    if job.status in ("done", "failed", "cancelled"):
+        job.status = "running"
+        job.completed_at = None
+    db.commit()
+    pool = getattr(request.app.state, "pool", None)
+    if pool is not None:
+        pool.enqueue_many([i.id for i in items])
+    return _job_to_out(job, list(job.items))
+
+
 @router.post("/{job_id}/items/{item_id}/retry", response_model=ItemOut)
 def retry_item(job_id: int, item_id: int, request: Request, db: Session = Depends(get_db)):
     item = db.get(JobItem, item_id)

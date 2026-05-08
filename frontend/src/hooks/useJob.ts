@@ -26,5 +26,9 @@ export function useJobControls(jobId: number) {
       mutationFn: (itemId: number) => jobsApi.retryItem(jobId, itemId),
       onSuccess,
     }),
+    retryAll: useMutation({
+      mutationFn: () => jobsApi.retryAllFailed(jobId),
+      onSuccess,
+    }),
   }
 }

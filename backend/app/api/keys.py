@@ -3,13 +3,20 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from openai import APIError, OpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.models import ApiKey
 from app.db.session import get_db
+
+
+def _resize_pool(request: Request) -> None:
+    """Hot-grow worker pool after key state changes (no restart needed)."""
+    pool = getattr(request.app.state, "pool", None)
+    if pool is not None:
+        pool.ensure_capacity()
 
 
 def _mask(value: str) -> str:
@@ -58,16 +65,17 @@ def list_keys(db: Session = Depends(get_db)) -> list[KeyOut]:
 
 
 @router.post("", response_model=KeyOut, status_code=201)
-def create_key(payload: KeyCreate, db: Session = Depends(get_db)) -> KeyOut:
+def create_key(payload: KeyCreate, request: Request, db: Session = Depends(get_db)) -> KeyOut:
     k = ApiKey(name=payload.name.strip(), key=payload.key.strip(), enabled=True)
     db.add(k)
     db.commit()
     db.refresh(k)
+    _resize_pool(request)
     return _to_out(k)
 
 
 @router.put("/{key_id}", response_model=KeyOut)
-def update_key(key_id: int, payload: KeyUpdate, db: Session = Depends(get_db)) -> KeyOut:
+def update_key(key_id: int, payload: KeyUpdate, request: Request, db: Session = Depends(get_db)) -> KeyOut:
     k = db.get(ApiKey, key_id)
     if k is None:
         raise HTTPException(404, "Key not found")
@@ -77,6 +85,8 @@ def update_key(key_id: int, payload: KeyUpdate, db: Session = Depends(get_db)) -
         k.enabled = payload.enabled
     db.commit()
     db.refresh(k)
+    if payload.enabled is True:
+        _resize_pool(request)
     return _to_out(k)
 
 

@@ -5,7 +5,7 @@ import { ItemRow } from '../components/ItemRow'
 import { JobControls } from '../components/JobControls'
 import { OpenFolderButton } from '../components/OpenFolderButton'
 import { ProgressBar } from '../components/ProgressBar'
-import { useJob } from '../hooks/useJob'
+import { useJob, useJobControls } from '../hooks/useJob'
 import { useJobWs } from '../hooks/useJobWs'
 import { formatDateShort, formatUSD } from '../lib/format'
 import { jobBadge } from '../lib/status'
@@ -27,6 +27,9 @@ export function JobDetail() {
   const badge = jobBadge(job.status)
   const jobOutputDir = `outputs/${job.id}`
   const hasOutputs = job.items.some((i) => !!i.output_path)
+  const failedCount = job.items.filter((i) =>
+    i.status === 'failed_permanent' || i.status === 'failed_retryable' || i.status === 'cancelled',
+  ).length
 
   return (
     <div className="space-y-5">
@@ -68,6 +71,7 @@ export function JobDetail() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {hasOutputs && <OpenFolderButton path={jobOutputDir} label="Open output folder" />}
+            {failedCount > 0 && <RetryAllButton jobId={job.id} count={failedCount} />}
             {job.done > 0 && (
               <a
                 href={`/api/jobs/${job.id}/export.zip`}
@@ -113,5 +117,23 @@ export function JobDetail() {
         onClose={() => setPreview(null)}
       />
     </div>
+  )
+}
+
+function RetryAllButton({ jobId, count }: { jobId: number; count: number }) {
+  const { retryAll } = useJobControls(jobId)
+  const click = () => {
+    if (!confirm(`Retry ${count} failed item(s)? Each one costs ~$0.07.`)) return
+    retryAll.mutate()
+  }
+  return (
+    <button
+      onClick={click}
+      disabled={retryAll.isPending}
+      className="px-3 py-1.5 rounded text-sm font-medium border bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+      title="Re-queue every failed/cancelled item in this job"
+    >
+      {retryAll.isPending ? 'Retrying…' : `↻ Retry all failed (${count})`}
+    </button>
   )
 }
