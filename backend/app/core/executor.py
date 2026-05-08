@@ -144,8 +144,12 @@ async def run_item(item_id: int) -> None:
 
         key_manager.mark_used(key_id)
 
-        # success
-        job_dir = settings.output_path / str(item.job_id)
+        # success — Mode C uses item.output_dir (per-subfolder); else default
+        if item.output_dir:
+            from pathlib import Path
+            job_dir = Path(item.output_dir)
+        else:
+            job_dir = settings.output_path / str(item.job_id)
         job_dir.mkdir(parents=True, exist_ok=True)
         out_file = job_dir / _output_filename(item)
         await asyncio.to_thread(out_file.write_bytes, result.image_bytes)

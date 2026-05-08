@@ -12,6 +12,7 @@ from app.core.executor import update_job_terminal_status
 from app.db.models import Job, JobItem
 from app.db.session import get_db
 from app.parsers.excel import parse_excel
+from app.parsers.folder import scan_parent
 from app.parsers.template import build_items
 
 EXCEL_MAX_BYTES = 50 * 1024 * 1024
@@ -37,6 +38,21 @@ class CreateExcelJob(BaseModel):
     mode: Literal["excel"]
     rows: list[ExcelRowIn] = Field(min_length=1)
     skip_invalid: bool = False
+
+
+class CreateFolderJob(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    mode: Literal["folder"]
+    parent_dir: str = Field(min_length=1)
+    template_prompt: str = Field(min_length=1)
+    output_subfolder: str = Field(default="generated", min_length=1, max_length=80)
+    skip_existing: bool = True
+
+
+class ScanFolderRequest(BaseModel):
+    parent_dir: str = Field(min_length=1)
+    output_subfolder: str = "generated"
+    skip_existing: bool = True
 
 
 class ItemOut(BaseModel):
@@ -100,17 +116,20 @@ def _item_to_out(item: JobItem) -> ItemOut:
 
 def _create_job_with_items(
     db: Session, request: Request, name: str, mode: str,
-    items_data: list[tuple[int, str, list[str], str | None]],
+    items_data: list[tuple],  # (row_idx, prompt, refs, output_name [, output_dir])
 ) -> Job:
     job = Job(name=name, mode=mode, status="running", config_json={})
     job.started_at = datetime.utcnow()
     db.add(job)
     db.flush()
     item_ids = []
-    for row_idx, prompt, refs, output_name in items_data:
+    for row in items_data:
+        row_idx, prompt, refs, output_name = row[:4]
+        output_dir = row[4] if len(row) > 4 else None
         item = JobItem(
             job_id=job.id, row_idx=row_idx, prompt=prompt,
             refs_json=refs, output_name=output_name, status="pending",
+            output_dir=output_dir,
         )
         db.add(item)
         db.flush()
@@ -157,6 +176,45 @@ async def parse_excel_endpoint(file: UploadFile):
     if not (file.filename or "").lower().endswith((".xlsx", ".xlsm")):
         raise HTTPException(415, "Only .xlsx/.xlsm supported")
     return parse_excel(data).to_dict()
+
+
+@router.post("/scan-folder")
+def scan_folder_endpoint(payload: ScanFolderRequest) -> dict:
+    """Preview which subfolders + images will be processed BEFORE creating a job."""
+    result = scan_parent(
+        payload.parent_dir, payload.output_subfolder, payload.skip_existing,
+    )
+    if result.error:
+        raise HTTPException(400, result.error)
+    return result.to_dict()
+
+
+@router.post("/folder", response_model=JobOut, status_code=201)
+def create_folder_job(payload: CreateFolderJob, request: Request, db: Session = Depends(get_db)):
+    result = scan_parent(payload.parent_dir, payload.output_subfolder, payload.skip_existing)
+    if result.error:
+        raise HTTPException(400, result.error)
+    if result.total_to_run == 0:
+        raise HTTPException(400, "No images to process (all skipped or no images found)")
+
+    items_data: list[tuple] = []
+    row_idx = 0
+    from pathlib import Path as _P
+    for sub in result.subfolders:
+        out_dir = str((_P(sub.path) / payload.output_subfolder).resolve())
+        for img in sub.images:
+            stem = _P(img).stem
+            items_data.append((
+                row_idx,
+                payload.template_prompt,
+                [img],
+                f"{stem}.png",
+                out_dir,
+            ))
+            row_idx += 1
+
+    job = _create_job_with_items(db, request, payload.name, payload.mode, items_data)
+    return _job_to_out(job, list(job.items))
 
 
 @router.get("", response_model=list[JobOut])

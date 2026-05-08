@@ -7,17 +7,18 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 
-def test_open_folder_validates_path(tmp_workspace: Path):
+def test_open_folder_nonexistent_path(tmp_workspace: Path):
     from app.main import create_app
 
     app = create_app()
     with TestClient(app) as client:
-        # Path outside allowed roots → 403
+        # Nonexistent path → 404 (loosened: any existing path may be opened on
+        # localhost since user controls the machine; we only block missing/`..`)
         resp = client.post(
             "/api/system/open-folder",
-            json={"path": "C:/Windows/System32"},
+            json={"path": "C:/path/that/does/not/exist/anywhere/on/disk"},
         )
-        assert resp.status_code in (403, 404)
+        assert resp.status_code == 404
 
 
 def test_open_folder_under_output_dir(tmp_workspace: Path):
@@ -49,4 +50,4 @@ def test_open_folder_traversal_rejected(tmp_workspace: Path):
             "/api/system/open-folder",
             json={"path": "outputs/../../../../etc/passwd"},
         )
-        assert resp.status_code in (403, 404)
+        assert resp.status_code in (400, 403, 404)

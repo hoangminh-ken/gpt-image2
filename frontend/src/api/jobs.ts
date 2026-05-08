@@ -95,8 +95,28 @@ export const jobsApi = {
     return res.json() as Promise<ExcelParseResult>
   },
   createExcelJob: (body: CreateExcelJob) => api.post<Job>('/api/jobs/excel', body),
+  scanFolder: (body: { parent_dir: string; output_subfolder?: string; skip_existing?: boolean }) =>
+    api.post<FolderScanResult>('/api/jobs/scan-folder', body),
+  createFolderJob: (body: CreateFolderJob) => api.post<Job>('/api/jobs/folder', body),
   openFolder: (path: string, selectFile = false) =>
     api.post<{ ok: boolean; opened: string }>('/api/system/open-folder', { path, select_file: selectFile }),
+}
+
+export interface FolderScanResult {
+  parent_dir: string
+  subfolders: { name: string; path: string; images: string[]; skipped_existing: number }[]
+  total_images: number
+  total_to_run: number
+  error: string | null
+}
+
+export interface CreateFolderJob {
+  name: string
+  mode: 'folder'
+  parent_dir: string
+  template_prompt: string
+  output_subfolder: string
+  skip_existing: boolean
 }
 
 export interface SettingsOut {

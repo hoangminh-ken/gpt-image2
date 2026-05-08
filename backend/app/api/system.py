@@ -20,14 +20,14 @@ class OpenFolderRequest(BaseModel):
 
 
 def _validate_path(path_str: str) -> Path:
-    """Allow only paths under OUTPUT_DIR or UPLOAD_DIR."""
-    p = Path(path_str)
-    if not p.is_absolute():
-        p = settings.project_root / p
-    p = p.resolve()
-    allowed = [settings.output_path.resolve(), settings.upload_path.resolve()]
-    if not any(str(p).startswith(str(root)) for root in allowed):
-        raise HTTPException(403, f"Path outside allowed roots: {p}")
+    """Reject `..` segments, ensure path exists. Localhost-only — user already
+    has full disk access; this endpoint just opens whatever they ask for, akin
+    to running `explorer.exe <path>` themselves. Mode C output dirs live wherever
+    user chose, so we can't restrict to OUTPUT_DIR/UPLOAD_DIR anymore."""
+    if ".." in path_str.replace("\\", "/").split("/"):
+        raise HTTPException(400, "Invalid path")
+    p = Path(path_str).expanduser()
+    p = (settings.project_root / p).resolve() if not p.is_absolute() else p.resolve()
     if not p.exists():
         raise HTTPException(404, f"Path not found: {p}")
     return p

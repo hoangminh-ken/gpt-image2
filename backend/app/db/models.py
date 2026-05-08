@@ -58,6 +58,9 @@ class JobItem(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     next_retry_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    # When set (Mode C "Folder Walker"), executor writes output to this absolute
+    # directory instead of the default `outputs/{job_id}/`.
+    output_dir: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     job: Mapped[Job] = relationship(back_populates="items")
 
